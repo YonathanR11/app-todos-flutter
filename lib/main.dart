@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:prueba_a/config/router/app_router.dart';
-import 'package:prueba_a/config/theme/app_theme.dart';
-import 'package:prueba_a/presentation/providers/theme_provider.dart';
+import 'package:todos/config/router/app_router.dart';
+import 'package:todos/config/theme/app_theme.dart';
+import 'package:todos/presentation/providers/theme_provider.dart';
 
 import 'infrastructure/datasources/local_db_datasource.dart';
 
