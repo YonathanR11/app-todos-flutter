@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:percent_indicator/circular_percent_indicator.dart';
+import 'package:percent_indicator/percent_indicator.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/subtodo.dart';
@@ -25,6 +25,7 @@ class _SubTodoScreenState extends State<SubTodoScreen> {
   final _controller = TextEditingController();
   final _subtodoDs = SubTodoLocalDatasource();
   final _uuid = const Uuid();
+  bool _hasChanges = false;
 
   List<SubTodo> _subtodos = [];
 
@@ -41,109 +42,118 @@ class _SubTodoScreenState extends State<SubTodoScreen> {
     });
   }
 
-  Future<void> _addSubTodo() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
-
-    final sub = SubTodo(id: _uuid.v4(), title: text, done: false);
+  Future<void> _addSubTodo(String title) async {
+    if (title.trim().isEmpty) return;
+    final sub = SubTodo(id: _uuid.v4(), title: title.trim(), done: false);
     await _subtodoDs.insertSubTodo(sub, widget.todoId);
-    _controller.clear();
-    _loadSubTodos();
+    _hasChanges = true;
+    await _loadSubTodos();
   }
 
   Future<void> _toggleSubTodo(SubTodo sub) async {
     await _subtodoDs.toggleSubTodoDone(sub.id, !sub.done);
-    _loadSubTodos();
+    _hasChanges = true;
+    await _loadSubTodos();
   }
 
   Future<void> _deleteSubTodo(String id) async {
     await _subtodoDs.deleteSubTodo(id);
-    _loadSubTodos();
+    _hasChanges = true;
+    await _loadSubTodos();
+  }
+
+  void _showAddModal() {
+    _controller.clear();
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding: MediaQuery.of(
+          context,
+        ).viewInsets.add(const EdgeInsets.all(16)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Nueva subtarea', style: TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Escribe una subtarea...',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) {
+                _addSubTodo(_controller.text);
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () {
+                _addSubTodo(_controller.text);
+                Navigator.pop(context);
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text('Subtareas de: ${widget.todoTitle}')),
-      body: Column(
-        children: [
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 200,
-            width: 200,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                CircularPercentIndicator(
-                  radius: 100.0,
-                  // ⬅️ Ajusta el tamaño del círculo
-                  lineWidth: 25.0,
-                  // ⬅️ Grosor del trazo
-                  percent: _subtodos.isEmpty
-                      ? 0
-                      : _subtodos.where((e) => e.done).length /
-                            _subtodos.length,
-                  center: Text(
-                    _subtodos.isEmpty
-                        ? '0%'
-                        : '${((_subtodos.where((e) => e.done).length / _subtodos.length) * 100).round()}%',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  progressColor: Colors.black87,
-                  backgroundColor: Colors.grey[300]!,
-                  animation: true,
-                  circularStrokeCap: CircularStrokeCap.round,
-                  animationDuration: 500,
-                ),
+    final completed = _subtodos.where((e) => e.done).length;
+    final total = _subtodos.length;
+    final percent = total == 0 ? 0.0 : completed / total;
 
-                Text(
-                  _subtodos.isEmpty
-                      ? '0%'
-                      : '${((_subtodos.where((e) => e.done).length / _subtodos.length) * 100).round()}%',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
+    return Scaffold(
+      appBar: AppBar(title: Text(widget.todoTitle)),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const SizedBox(height: 50, width: 50,),
+          CircularPercentIndicator(
+            radius: 100,
+            lineWidth: 25,
+            percent: percent,
+            center: Text(
+              '${(percent * 100).round()}%',
+              style: const TextStyle(fontSize: 20),
             ),
+            progressColor: Colors.blueAccent,
+            backgroundColor: Colors.grey[300]!,
+            animation: true,
+            animationDuration: 500,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 25),
+          const Divider(thickness: 1),
           Padding(
-            padding: const EdgeInsets.all(12.0),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Nueva subtarea...',
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _addSubTodo(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _addSubTodo,
-                  child: const Text('Agregar'),
+                Text('Subtodos ($total)', style: const TextStyle(fontSize: 16)),
+                const Spacer(),
+                ElevatedButton.icon(
+                  onPressed: _showAddModal,
+                  icon: const Icon(Icons.add),
+                  label: const Text('Agregar'),
                 ),
               ],
             ),
           ),
-          const Divider(),
+          const SizedBox(height: 8),
           Expanded(
             child: _subtodos.isEmpty
-                ? const Center(child: Text('Sin subtareas'))
+                ? const Center(child: Text('Sin subtareas...'))
                 : ListView.builder(
                     itemCount: _subtodos.length,
                     itemBuilder: (context, index) {
                       final sub = _subtodos[index];
                       return Opacity(
-                        opacity: sub.done ? 0.5 : 1,
+                        opacity: sub.done ? 0.5 : 1.0,
                         child: ListTile(
                           title: Text(
                             sub.title,
