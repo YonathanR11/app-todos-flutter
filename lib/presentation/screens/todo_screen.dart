@@ -1,8 +1,6 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:sqlite_viewer2/sqlite_viewer.dart';
 import 'package:todos/presentation/screens/subtodo_screen.dart';
 
 import '../../domain/entities/todo.dart';
@@ -22,8 +20,10 @@ class TodoScreen extends ConsumerStatefulWidget {
 class _TodoScreenState extends ConsumerState<TodoScreen> {
   final TextEditingController _controller = TextEditingController();
   final _subtodoDs = SubTodoLocalDatasource();
-
   List<Todo> _todos = [];
+
+
+
 
   Future<void> _loadTodos() async {
     final repo = ref.read(todoRepositoryProvider);
@@ -66,6 +66,72 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     return todo.copyWith(completedSubtasks: done, totalSubtasks: total);
   }
 
+  bool _isInProgress(Todo t) {
+    final total = t.totalSubtasks ?? 0;
+    final done = t.completedSubtasks ?? 0;
+
+    // Mostrar si no hay subtareas, o si hay algunas pero no todas están completas
+    return !t.done && (total == 0 || done < total);
+  }
+
+  bool _isCompleted(Todo t) =>
+      (t.totalSubtasks ?? 0) > 0 &&
+      (t.completedSubtasks ?? 0) == (t.totalSubtasks ?? 0);
+
+  void _showAddTodoModal() {
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (_) => Padding(
+        padding: MediaQuery.of(
+          context,
+        ).viewInsets.add(const EdgeInsets.all(16)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Nueva tarea', style: TextStyle(fontSize: 18)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              decoration: const InputDecoration(
+                hintText: 'Escribe tu tarea...',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) async {
+                await _addTodo();
+                Navigator.pop(context);
+              },
+            ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () async {
+                await _addTodo();
+                Navigator.pop(context);
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTodoList(List<Todo> todos) {
+    if (todos.isEmpty) {
+      return const Center(child: Text('Sin tareas'));
+    }
+
+    return ListView.builder(
+      itemCount: todos.length,
+      itemBuilder: (context, index) {
+        final todo = todos[index];
+        return _buildTodoTile(todo);
+      },
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -75,6 +141,9 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
   @override
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeProvider);
+    final totalCount = _todos.length;
+    final inProgressCount = _todos.where(_isInProgress).length;
+    final completedCount = _todos.where(_isCompleted).length;
 
     return Scaffold(
       appBar: AppBar(
@@ -90,74 +159,37 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(12.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    decoration: const InputDecoration(
-                      hintText: 'Nueva tarea...',
-                      border: OutlineInputBorder(),
-                    ),
-                    onSubmitted: (_) => _addTodo(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: _addTodo,
-                  child: const Text('Agregar'),
-                ),
+      body: DefaultTabController(
+        length: 3,
+        child: Column(
+          children: [
+            TabBar(
+              isScrollable: true,
+              tabs: [
+                Tab(text: 'Todos ($totalCount)'),
+                Tab(text: 'En progreso ($inProgressCount)'),
+                Tab(text: 'Completados ($completedCount)'),
               ],
             ),
-          ),
-          const Divider(),
-          Expanded(
-            child: _todos.isEmpty
-                ? const Center(child: Text('Sin tareas aún...'))
-                : ListView(
-                    children: [
-                      // TODOs pendientes
-                      ..._todos.where((t) => !t.done).map(_buildTodoTile),
-
-                      // Separador
-                      if (_todos.any((t) => t.done)) ...[
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Column(
-                            children: [
-                              Divider(thickness: 2),
-                              Text(
-                                'Completados',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-
-                      // TODOs completados
-                      ..._todos.where((t) => t.done).map(_buildTodoTile),
-                    ],
-                  ),
-          ),
-        ],
+            Expanded(
+              child: TabBarView(
+                children: [
+                  _buildTodoList(_todos),
+                  // Todos
+                  _buildTodoList(_todos.where(_isInProgress).toList()),
+                  // En progreso
+                  _buildTodoList(_todos.where(_isCompleted).toList()),
+                  // Completados
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-      floatingActionButton: kDebugMode
-          ? FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => DatabaseList()),
-                );
-              },
-              tooltip: 'Ver base de datos',
-              child: const Icon(Icons.storage),
-            )
-          : null,
+      floatingActionButton: FloatingActionButton(
+        onPressed: _showAddTodoModal,
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
