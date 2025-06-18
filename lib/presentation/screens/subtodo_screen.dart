@@ -114,7 +114,7 @@ class _SubTodoScreenState extends State<SubTodoScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          const SizedBox(height: 50, width: 50,),
+          const SizedBox(height: 50, width: 50),
           CircularPercentIndicator(
             radius: 100,
             lineWidth: 25,
@@ -123,8 +123,9 @@ class _SubTodoScreenState extends State<SubTodoScreen> {
               '${(percent * 100).round()}%',
               style: const TextStyle(fontSize: 20),
             ),
-            progressColor: Colors.blueAccent,
+            progressColor: Theme.of(context).colorScheme.primary,
             backgroundColor: Colors.grey[300]!,
+            circularStrokeCap: CircularStrokeCap.round,
             animation: true,
             animationDuration: 500,
           ),
