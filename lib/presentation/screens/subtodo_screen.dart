@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../domain/entities/subtodo.dart';
@@ -66,6 +67,51 @@ class _SubTodoScreenState extends State<SubTodoScreen> {
       appBar: AppBar(title: Text('Subtareas de: ${widget.todoTitle}')),
       body: Column(
         children: [
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 200,
+            width: 200,
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                CircularPercentIndicator(
+                  radius: 100.0,
+                  // ⬅️ Ajusta el tamaño del círculo
+                  lineWidth: 25.0,
+                  // ⬅️ Grosor del trazo
+                  percent: _subtodos.isEmpty
+                      ? 0
+                      : _subtodos.where((e) => e.done).length /
+                            _subtodos.length,
+                  center: Text(
+                    _subtodos.isEmpty
+                        ? '0%'
+                        : '${((_subtodos.where((e) => e.done).length / _subtodos.length) * 100).round()}%',
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  progressColor: Colors.black87,
+                  backgroundColor: Colors.grey[300]!,
+                  animation: true,
+                  circularStrokeCap: CircularStrokeCap.round,
+                  animationDuration: 500,
+                ),
+
+                Text(
+                  _subtodos.isEmpty
+                      ? '0%'
+                      : '${((_subtodos.where((e) => e.done).length / _subtodos.length) * 100).round()}%',
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(
