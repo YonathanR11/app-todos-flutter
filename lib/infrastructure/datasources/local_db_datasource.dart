@@ -47,6 +47,16 @@ class LocalDBDatasource {
       done INTEGER NOT NULL
     )
   ''');
+
+    await db.execute('''
+    CREATE TABLE subtodos (
+      id TEXT PRIMARY KEY,
+      todo_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      done INTEGER NOT NULL,
+      FOREIGN KEY (todo_id) REFERENCES todos(id) ON DELETE CASCADE
+    )
+  ''');
   }
 
   /// Cierra la base de datos (opcional)

@@ -1,9 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:sqlite_viewer2/sqlite_viewer.dart';
+import 'package:todos/presentation/screens/subtodo_screen.dart';
 
 import '../../domain/entities/todo.dart';
+import '../../infrastructure/datasources/subtodo_local_datasource.dart';
 import '../providers/theme_provider.dart';
 import '../providers/todo_provider.dart';
 
@@ -18,14 +21,18 @@ class TodoScreen extends ConsumerStatefulWidget {
 
 class _TodoScreenState extends ConsumerState<TodoScreen> {
   final TextEditingController _controller = TextEditingController();
+  final _subtodoDs = SubTodoLocalDatasource();
 
   List<Todo> _todos = [];
 
   Future<void> _loadTodos() async {
     final repo = ref.read(todoRepositoryProvider);
     final todos = await repo.getAllTodos();
+
+    final todosWithCounts = await Future.wait(todos.map(_withSubTodoCount));
+
     setState(() {
-      _todos = todos;
+      _todos = todosWithCounts;
     });
   }
 
@@ -49,6 +56,14 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     final repo = ref.read(todoRepositoryProvider);
     await repo.removeTodo(id);
     await _loadTodos();
+  }
+
+  Future<Todo> _withSubTodoCount(Todo todo) async {
+    final subtodos = await _subtodoDs.getSubTodosByTodoId(todo.id!);
+    final total = subtodos.length;
+    final done = subtodos.where((e) => e.done).length;
+
+    return todo.copyWith(completedSubtasks: done, totalSubtasks: total);
   }
 
   @override
@@ -150,6 +165,29 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
     return Opacity(
       opacity: todo.done ? 0.5 : 1.0,
       child: ListTile(
+        leading: SizedBox(
+          width: 48,
+          height: 48,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CircularProgressIndicator(
+                value: (todo.totalSubtasks ?? 0) == 0
+                    ? 0
+                    : (todo.completedSubtasks ?? 0) / (todo.totalSubtasks ?? 1),
+                strokeWidth: 4,
+                backgroundColor: Colors.grey[300],
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.black54),
+              ),
+              Text(
+                todo.totalSubtasks == null || todo.totalSubtasks == 0
+                    ? '0%'
+                    : '${((todo.completedSubtasks ?? 0) / todo.totalSubtasks! * 100).round()}%',
+                style: const TextStyle(fontSize: 10),
+              ),
+            ],
+          ),
+        ),
         title: Text(
           todo.title,
           style: TextStyle(
@@ -157,13 +195,29 @@ class _TodoScreenState extends ConsumerState<TodoScreen> {
             color: todo.done ? Colors.grey : null,
           ),
         ),
-        leading: Checkbox(
-          value: todo.done,
-          onChanged: (_) => _toggleTodo(todo),
-        ),
-        trailing: IconButton(
-          icon: const Icon(Icons.delete),
-          onPressed: () => _deleteTodo(todo.id!),
+        onTap: () async {
+          await context.pushNamed(
+            SubTodoScreen.name,
+            pathParameters: {'id': todo.id!, 'title': todo.title},
+          );
+          _loadTodos();
+        },
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'delete') _deleteTodo(todo.id!);
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete, color: Colors.red[400]),
+                  const SizedBox(width: 1),
+                  const Text('Eliminar'),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

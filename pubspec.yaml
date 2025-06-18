@@ -42,6 +42,7 @@ dependencies:
   sqlite_viewer2: ^2.0.0
   uuid: ^4.5.1
   flutter_native_splash: ^2.4.6
+  percent_indicator: ^4.2.5
 
 flutter_native_splash:
   color: "#f8f8ff"
